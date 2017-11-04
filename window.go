@@ -351,7 +351,7 @@ func MustRegisterWindowClassWithWndProcPtrAndStyle(className string, wndProcPtr 
 		panic("GetModuleHandle")
 	}
 
-	hIcon := win.LoadIcon(hInst, win.MAKEINTRESOURCE(7)) // rsrc uses 7 for app icon
+	hIcon := win.LoadIcon(hInst, win.MAKEINTRESOURCE(2)) // goversioninfo uses 2 for app icon
 	if hIcon == 0 {
 		hIcon = win.LoadIcon(0, win.MAKEINTRESOURCE(win.IDI_APPLICATION))
 	}
