@@ -23,7 +23,7 @@ func NewLabel(parent Container) (*Label, error) {
 		l,
 		parent,
 		"STATIC",
-		win.WS_VISIBLE|win.SS_CENTERIMAGE,
+		win.WS_VISIBLE,
 		0); err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func NewLabel(parent Container) (*Label, error) {
 }
 
 func (*Label) LayoutFlags() LayoutFlags {
-	return GrowableVert
+	return GrowableVert | GrowableHorz | GreedyHorz
 }
 
 func (l *Label) MinSizeHint() Size {
@@ -78,6 +78,35 @@ func (l *Label) SetTextColor(c Color) {
 	l.textColor = c
 
 	l.Invalidate()
+}
+
+func (l *Label) Alignment() Alignment1D {
+	switch win.GetWindowLong(l.hWnd, win.GWL_STYLE) & (win.SS_LEFT | win.SS_CENTER | win.SS_RIGHT) {
+	case win.SS_CENTER:
+		return AlignCenter
+
+	case win.SS_RIGHT:
+		return AlignFar
+	}
+
+	return AlignNear
+}
+
+func (l *Label) SetAlignment(alignment Alignment1D) error {
+	var bit uint32
+
+	switch alignment {
+	case AlignCenter:
+		bit = win.SS_CENTER
+
+	case AlignFar:
+		bit = win.SS_RIGHT
+
+	default:
+		bit = win.SS_LEFT
+	}
+
+	return l.ensureStyleBits(bit, true)
 }
 
 func (l *Label) WndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
