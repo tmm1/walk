@@ -15,6 +15,7 @@ type Label struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,19 +36,21 @@ type Label struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
 
 	// Label
 
-	AssignTo  **walk.Label
-	Alignment Alignment1D
-	Text      Property
-	TextColor walk.Color
+	AssignTo      **walk.Label
+	Text          Property
+	TextAlignment Alignment1D
+	TextColor     walk.Color
 }
 
 func (l Label) Create(builder *Builder) error {
@@ -56,16 +59,16 @@ func (l Label) Create(builder *Builder) error {
 		return err
 	}
 
+	if l.AssignTo != nil {
+		*l.AssignTo = w
+	}
+
 	return builder.InitWidget(l, w, func() error {
-		if err := w.SetAlignment(walk.Alignment1D(l.Alignment)); err != nil {
+		if err := w.SetTextAlignment(walk.Alignment1D(l.TextAlignment)); err != nil {
 			return err
 		}
 
 		w.SetTextColor(l.TextColor)
-
-		if l.AssignTo != nil {
-			*l.AssignTo = w
-		}
 
 		return nil
 	})

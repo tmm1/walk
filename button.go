@@ -8,8 +8,10 @@ package walk
 
 import (
 	"fmt"
-	"github.com/lxn/win"
 	"strconv"
+	"unsafe"
+
+	"github.com/lxn/win"
 )
 
 type clickable interface {
@@ -79,9 +81,17 @@ func (b *Button) init() {
 			return b.Text()
 		},
 		func(v interface{}) error {
-			return b.SetText(v.(string))
+			return b.SetText(assertStringOr(v, ""))
 		},
 		b.textChangedPublisher.Event()))
+}
+
+func (b *Button) MinSizeHint() Size {
+	var s win.SIZE
+
+	b.SendMessage(win.BCM_GETIDEALSIZE, 0, uintptr(unsafe.Pointer(&s)))
+
+	return maxSize(Size{int(s.CX), int(s.CY)}, b.dialogBaseUnitsToPixels(Size{50, 14}))
 }
 
 func (b *Button) Image() Image {
@@ -123,7 +133,7 @@ func (b *Button) ImageChanged() *Event {
 }
 
 func (b *Button) Text() string {
-	return windowText(b.hWnd)
+	return b.text()
 }
 
 func (b *Button) SetText(value string) error {
@@ -131,7 +141,7 @@ func (b *Button) SetText(value string) error {
 		return nil
 	}
 
-	if err := setWindowText(b.hWnd, value); err != nil {
+	if err := b.setText(value); err != nil {
 		return err
 	}
 
@@ -177,11 +187,11 @@ func (b *Button) SetPersistent(value bool) {
 }
 
 func (b *Button) SaveState() error {
-	return b.putState(fmt.Sprintf("%t", b.Checked()))
+	return b.WriteState(fmt.Sprintf("%t", b.Checked()))
 }
 
 func (b *Button) RestoreState() error {
-	s, err := b.getState()
+	s, err := b.ReadState()
 	if err != nil {
 		return err
 	}

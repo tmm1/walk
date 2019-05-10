@@ -23,6 +23,7 @@ type CustomWidget struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -43,9 +44,11 @@ type CustomWidget struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -66,6 +69,10 @@ func (cw CustomWidget) Create(builder *Builder) error {
 		return err
 	}
 
+	if cw.AssignTo != nil {
+		*cw.AssignTo = w
+	}
+
 	return builder.InitWidget(cw, w, func() error {
 		if cw.PaintMode != PaintNormal && cw.ClearsBackground {
 			panic("PaintMode and ClearsBackground are incompatible")
@@ -73,10 +80,6 @@ func (cw CustomWidget) Create(builder *Builder) error {
 		w.SetClearsBackground(cw.ClearsBackground)
 		w.SetInvalidatesOnResize(cw.InvalidatesOnResize)
 		w.SetPaintMode(walk.PaintMode(cw.PaintMode))
-
-		if cw.AssignTo != nil {
-			*cw.AssignTo = w
-		}
 
 		return nil
 	})

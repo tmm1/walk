@@ -57,6 +57,14 @@ func newReflectListModel(dataSource interface{}) (ListModel, error) {
 
 			m.PublishItemsReset()
 		})
+
+		rlm.ItemsInserted().Attach(func(from, to int) {
+			m.PublishItemsInserted(from, to)
+		})
+
+		rlm.ItemsRemoved().Attach(func(from, to int) {
+			m.PublishItemsRemoved(from, to)
+		})
 	}
 
 	return m, nil
@@ -82,6 +90,10 @@ func (m *reflectListModel) Value(index int) interface{} {
 	return valueFromSlice(m.dataSource, m.value, m.displayMember, index)
 }
 
+type lessFuncsSetter interface {
+	setLessFuncs(lessFuncs []func(i, j int) bool)
+}
+
 type dataMembersSetter interface {
 	setDataMembers(dataMembers []string)
 }
@@ -89,6 +101,7 @@ type dataMembersSetter interface {
 type reflectTableModel struct {
 	TableModelBase
 	sorterBase  *SorterBase
+	lessFuncs   []func(i, j int) bool
 	dataMembers []string
 	dataSource  interface{}
 	items       interface{}
@@ -154,6 +167,10 @@ func newReflectTableModel(dataSource interface{}) (TableModel, error) {
 	}
 
 	return m, nil
+}
+
+func (m *reflectTableModel) setLessFuncs(lessFuncs []func(i, j int) bool) {
+	m.lessFuncs = lessFuncs
 }
 
 func (m *reflectTableModel) setDataMembers(dataMembers []string) {
@@ -261,6 +278,16 @@ func (m *reflectTableModel) Len() int {
 func (m *reflectTableModel) Less(i, j int) bool {
 	col := m.SortedColumn()
 
+	if lt := m.lessFuncs[col]; lt != nil {
+		ls := lt(i, j)
+
+		if m.SortOrder() == SortAscending {
+			return ls
+		} else {
+			return !ls
+		}
+	}
+
 	return less(m.Value(i, col), m.Value(j, col), m.SortOrder())
 }
 
@@ -325,15 +352,16 @@ func itemsFromReflectModelDataSource(dataSource interface{}, requiredInterfaceNa
 		}
 	}
 
-	if t := reflect.TypeOf(items); t == nil ||
-		t.Kind() != reflect.Slice ||
-		t.Elem().Kind() != reflect.Ptr ||
-		t.Elem().Elem().Kind() != reflect.Struct {
+	if t := reflect.TypeOf(items); t != nil &&
+		t.Kind() == reflect.Slice &&
+		(t.Elem().Kind() == reflect.Struct ||
+			(t.Elem().Kind() == reflect.Interface || t.Elem().Kind() == reflect.Ptr) &&
+				t.Elem().Elem().Kind() == reflect.Struct) {
 
-		return nil, newError(fmt.Sprintf("dataSource must be a slice of pointers to struct or must implement %s.", requiredInterfaceName))
+		return items, nil
 	}
 
-	return items, nil
+	return nil, newError(fmt.Sprintf("dataSource must be a slice of struct or interface or pointer to struct or must implement %s.", requiredInterfaceName))
 }
 
 func valueFromSlice(dataSource interface{}, itemsValue reflect.Value, member string, index int) interface{} {
@@ -359,7 +387,7 @@ func valueFromSlice(dataSource interface{}, itemsValue reflect.Value, member str
 		}
 	}
 
-	vv, err := reflectValueFromPath(v, member)
+	_, vv, err := reflectValueFromPath(v, member)
 	if err != nil {
 		return err
 	}

@@ -7,9 +7,10 @@
 package walk
 
 import (
-	"github.com/lxn/win"
 	"syscall"
 	"unsafe"
+
+	"github.com/lxn/win"
 )
 
 type LinkLabel struct {
@@ -37,7 +38,7 @@ func NewLinkLabel(parent Container) (*LinkLabel, error) {
 			return ll.Text()
 		},
 		func(v interface{}) error {
-			return ll.SetText(v.(string))
+			return ll.SetText(assertStringOr(v, ""))
 		},
 		ll.textChangedPublisher.Event()))
 
@@ -57,7 +58,7 @@ func (ll *LinkLabel) SizeHint() Size {
 }
 
 func (ll *LinkLabel) Text() string {
-	return windowText(ll.hWnd)
+	return ll.text()
 }
 
 func (ll *LinkLabel) SetText(value string) error {
@@ -65,7 +66,7 @@ func (ll *LinkLabel) SetText(value string) error {
 		return nil
 	}
 
-	if err := setWindowText(ll.hWnd, value); err != nil {
+	if err := ll.setText(value); err != nil {
 		return err
 	}
 
@@ -195,7 +196,7 @@ func (lll *LinkLabelLink) hasState(state uint32) (bool, error) {
 	}
 
 	if win.TRUE != lll.ll.SendMessage(win.LM_GETITEM, 0, uintptr(unsafe.Pointer(&li))) {
-		return false, newErr("LM_GETITEM")
+		return false, newError("LM_GETITEM")
 	}
 
 	return li.State&state == state, nil
@@ -215,7 +216,7 @@ func (lll *LinkLabelLink) setState(state uint32, set bool) error {
 	li.ILink = int32(lll.index)
 
 	if win.TRUE != lll.ll.SendMessage(win.LM_SETITEM, 0, uintptr(unsafe.Pointer(&li))) {
-		return newErr("LM_SETITEM")
+		return newError("LM_SETITEM")
 	}
 
 	return nil

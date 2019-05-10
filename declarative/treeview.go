@@ -15,6 +15,7 @@ type TreeView struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type TreeView struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -56,6 +59,10 @@ func (tv TreeView) Create(builder *Builder) error {
 	w, err := walk.NewTreeView(builder.Parent())
 	if err != nil {
 		return err
+	}
+
+	if tv.AssignTo != nil {
+		*tv.AssignTo = w
 	}
 
 	return builder.InitWidget(tv, w, func() error {
@@ -77,10 +84,6 @@ func (tv TreeView) Create(builder *Builder) error {
 
 		if tv.OnItemActivated != nil {
 			w.ItemActivated().Attach(tv.OnItemActivated)
-		}
-
-		if tv.AssignTo != nil {
-			*tv.AssignTo = w
 		}
 
 		return nil

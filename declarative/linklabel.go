@@ -15,6 +15,7 @@ type LinkLabel struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type LinkLabel struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -55,13 +58,13 @@ func (ll LinkLabel) Create(builder *Builder) error {
 		return err
 	}
 
+	if ll.AssignTo != nil {
+		*ll.AssignTo = w
+	}
+
 	return builder.InitWidget(ll, w, func() error {
 		if ll.OnLinkActivated != nil {
 			w.LinkActivated().Attach(ll.OnLinkActivated)
-		}
-
-		if ll.AssignTo != nil {
-			*ll.AssignTo = w
 		}
 
 		return nil

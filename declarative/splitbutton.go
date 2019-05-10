@@ -15,6 +15,7 @@ type SplitButton struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type SplitButton struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -61,6 +64,10 @@ func (sb SplitButton) Create(builder *Builder) error {
 		return err
 	}
 
+	if sb.AssignTo != nil {
+		*sb.AssignTo = w
+	}
+
 	builder.deferBuildMenuActions(w.Menu(), sb.MenuItems)
 
 	return builder.InitWidget(sb, w, func() error {
@@ -70,10 +77,6 @@ func (sb SplitButton) Create(builder *Builder) error {
 
 		if sb.OnClicked != nil {
 			w.Clicked().Attach(sb.OnClicked)
-		}
-
-		if sb.AssignTo != nil {
-			*sb.AssignTo = w
 		}
 
 		return nil

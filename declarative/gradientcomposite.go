@@ -16,6 +16,7 @@ type GradientComposite struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -36,9 +37,11 @@ type GradientComposite struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -70,6 +73,10 @@ func (gc GradientComposite) Create(builder *Builder) error {
 		return err
 	}
 
+	if gc.AssignTo != nil {
+		*gc.AssignTo = w
+	}
+
 	w.SetSuspended(true)
 	builder.Defer(func() error {
 		w.SetSuspended(false)
@@ -77,10 +84,6 @@ func (gc GradientComposite) Create(builder *Builder) error {
 	})
 
 	return builder.InitWidget(gc, w, func() error {
-		if gc.AssignTo != nil {
-			*gc.AssignTo = w
-		}
-
 		if gc.Expressions != nil {
 			for name, expr := range gc.Expressions() {
 				builder.expressions[name] = expr

@@ -54,6 +54,7 @@ type Builder struct {
 	parent                   walk.Container
 	declWidgets              []declWidget
 	name2Window              map[string]walk.Window
+	name2DataBinder          map[string]*walk.DataBinder
 	deferredFuncs            []func() error
 	knownCompositeConditions map[string]walk.Condition
 	expressions              map[string]walk.Expression
@@ -64,6 +65,7 @@ func NewBuilder(parent walk.Container) *Builder {
 	return &Builder{
 		parent:                   parent,
 		name2Window:              make(map[string]walk.Window),
+		name2DataBinder:          make(map[string]*walk.DataBinder),
 		knownCompositeConditions: make(map[string]walk.Condition),
 		expressions:              make(map[string]walk.Expression),
 		functions:                make(map[string]govaluate.ExpressionFunction),
@@ -145,6 +147,14 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 		}
 	}
 
+	if val := b.widgetValue.FieldByName("Font"); val.IsValid() {
+		if f, err := val.Interface().(Font).Create(); err != nil {
+			return err
+		} else if f != nil {
+			w.SetFont(f)
+		}
+	}
+
 	if err := w.SetMinMaxSize(b.size("MinSize").toW(), b.size("MaxSize").toW()); err != nil {
 		return err
 	}
@@ -192,6 +202,10 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 		w.SizeChanged().Attach(handler)
 	}
 
+	if db := b.bool("DoubleBuffering"); db {
+		w.SetDoubleBuffering(true)
+	}
+
 	if rtl := b.bool("RightToLeftReading"); rtl {
 		w.SetRightToLeftReading(true)
 	}
@@ -201,9 +215,24 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 	column := b.int("Column")
 	columnSpan := b.int("ColumnSpan")
 
+	rowBackup := row
+	columnBackup := column
+
 	if widget, ok := w.(walk.Widget); ok {
+		if alignment := b.alignment(); alignment != AlignHVDefault {
+			if err := widget.SetAlignment(walk.Alignment2D(alignment)); err != nil {
+				return err
+			}
+		}
+
 		if err := widget.SetAlwaysConsumeSpace(b.bool("AlwaysConsumeSpace")); err != nil {
 			return err
+		}
+
+		if field := b.widgetValue.FieldByName("GraphicsEffects"); field.IsValid() {
+			for _, effect := range field.Interface().([]walk.WidgetGraphicsEffect) {
+				widget.GraphicsEffects().Add(effect)
+			}
 		}
 
 		if p := widget.Parent(); p != nil {
@@ -297,17 +326,32 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 			}
 		}
 
-		b.parent = wc
+		type DelegateContainerer interface {
+			DelegateContainer() walk.Container
+		}
+
+		if dc, ok := wc.(DelegateContainerer); ok {
+			if parent := dc.DelegateContainer(); parent != nil {
+				b.parent = parent
+			} else {
+				b.parent = wc
+			}
+		} else {
+			b.parent = wc
+		}
 		defer func() {
 			b.parent = oldParent
 		}()
 
 		if layout != nil {
 			if g, ok := layout.(Grid); ok {
+				rowBackup = b.row
+				columnBackup = b.col
+
 				rows := b.rows
 				columns := b.columns
 				defer func() {
-					b.rows, b.columns, b.row, b.col = rows, columns, row, column+columnSpan
+					b.rows, b.columns, b.row, b.col = rows, columns, rowBackup+rowSpan, columnBackup+columnSpan
 				}()
 
 				b.rows = g.Rows
@@ -333,6 +377,8 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 			} else {
 				db = dataB
 
+				b.name2DataBinder[dataBinder.Name] = db
+
 				if ep := db.ErrorPresenter(); ep != nil {
 					if dep, ok := ep.(walk.Disposable); ok {
 						wc.AddDisposable(dep)
@@ -350,15 +396,6 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 	}
 
 	b.parent = oldParent
-
-	// Widget continued
-	if val := b.widgetValue.FieldByName("Font"); val.IsValid() {
-		if f, err := val.Interface().(Font).Create(); err != nil {
-			return err
-		} else if f != nil {
-			w.SetFont(f)
-		}
-	}
 
 	if b.level == 1 {
 		if err := b.initProperties(); err != nil {
@@ -394,6 +431,16 @@ func (b *Builder) InitWidget(d Widget, w walk.Window, customInit func() error) e
 	succeeded = true
 
 	return nil
+}
+
+func (b *Builder) alignment() Alignment2D {
+	fieldValue := b.widgetValue.FieldByName("Alignment")
+
+	if fieldValue.IsValid() {
+		return fieldValue.Interface().(Alignment2D)
+	}
+
+	return AlignHVDefault
 }
 
 func (b *Builder) bool(fieldName string) bool {
@@ -592,6 +639,8 @@ func (b *Builder) conditionOrProperty(data Property) interface{} {
 					} else {
 						panic(fmt.Errorf(`invalid sub expression: "%s"`, s))
 					}
+				} else if db, ok := b.name2DataBinder[parts[0]]; ok {
+					e.addSubExpression(s, db.Expression(s[len(parts[0])+1:]))
 				} else if expr, ok := b.expressions[parts[0]]; ok {
 					e.addSubExpression(s, walk.NewReflectExpression(expr, s[len(parts[0])+1:]))
 				}
@@ -658,6 +707,10 @@ func (se subExpressions) Get(name string) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf(`invalid sub expression: "%s"`, name)
+}
+
+func (e *expression) String() string {
+	return e.text
 }
 
 func (e *expression) Value() interface{} {

@@ -13,6 +13,7 @@ type MainWindow struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -62,10 +63,15 @@ func (mw MainWindow) Create() error {
 		return err
 	}
 
+	if mw.AssignTo != nil {
+		*mw.AssignTo = w
+	}
+
 	fi := formInfo{
 		// Window
 		Background:         mw.Background,
 		ContextMenuItems:   mw.ContextMenuItems,
+		DoubleBuffering:    mw.DoubleBuffering,
 		Enabled:            mw.Enabled,
 		Font:               mw.Font,
 		MaxSize:            mw.MaxSize,
@@ -97,7 +103,7 @@ func (mw MainWindow) Create() error {
 	w.SetSuspended(true)
 	builder.Defer(func() error {
 		w.SetSuspended(false)
-		w.SetBounds(w.Bounds())
+		w.SetBoundsPixels(w.BoundsPixels())
 		return nil
 	})
 
@@ -143,7 +149,7 @@ func (mw MainWindow) Create() error {
 			w.StatusBar().SetVisible(true)
 		}
 
-		if err := w.SetSize(mw.Size.toW()); err != nil {
+		if err := w.SetSizePixels(mw.Size.toW()); err != nil {
 			return err
 		}
 
@@ -157,9 +163,9 @@ func (mw MainWindow) Create() error {
 			w.DropFiles().Attach(mw.OnDropFiles)
 		}
 
-		if mw.AssignTo != nil {
-			*mw.AssignTo = w
-		}
+		// if mw.AssignTo != nil {
+		// 	*mw.AssignTo = w
+		// }
 
 		if mw.Expressions != nil {
 			for name, expr := range mw.Expressions() {

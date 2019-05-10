@@ -15,6 +15,7 @@ type ToolButton struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type ToolButton struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -59,13 +62,13 @@ func (tb ToolButton) Create(builder *Builder) error {
 		return err
 	}
 
+	if tb.AssignTo != nil {
+		*tb.AssignTo = w
+	}
+
 	return builder.InitWidget(tb, w, func() error {
 		if tb.OnClicked != nil {
 			w.Clicked().Attach(tb.OnClicked)
-		}
-
-		if tb.AssignTo != nil {
-			*tb.AssignTo = w
 		}
 
 		return nil

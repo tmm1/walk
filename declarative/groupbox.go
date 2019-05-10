@@ -15,6 +15,7 @@ type GroupBox struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type GroupBox struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -62,6 +65,10 @@ func (gb GroupBox) Create(builder *Builder) error {
 		return err
 	}
 
+	if gb.AssignTo != nil {
+		*gb.AssignTo = w
+	}
+
 	w.SetSuspended(true)
 	builder.Defer(func() error {
 		w.SetSuspended(false)
@@ -74,10 +81,6 @@ func (gb GroupBox) Create(builder *Builder) error {
 		}
 
 		w.SetCheckable(gb.Checkable)
-
-		if gb.AssignTo != nil {
-			*gb.AssignTo = w
-		}
 
 		return nil
 	})

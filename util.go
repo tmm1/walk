@@ -13,9 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-)
 
-import (
 	"github.com/lxn/win"
 )
 
@@ -107,6 +105,38 @@ func uint16RemoveUint16(s []uint16, v uint16) []uint16 {
 	}
 
 	return ret
+}
+
+func assertFloat64Or(value interface{}, defaultValue float64) float64 {
+	if f, ok := value.(float64); ok {
+		return f
+	}
+
+	return defaultValue
+}
+
+func assertIntOr(value interface{}, defaultValue int) int {
+	if n, ok := value.(int); ok {
+		return n
+	}
+
+	return defaultValue
+}
+
+func assertStringOr(value interface{}, defaultValue string) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+
+	return defaultValue
+}
+
+func assertTimeOr(value interface{}, defaultValue time.Time) time.Time {
+	if t, ok := value.(time.Time); ok {
+		return t
+	}
+
+	return defaultValue
 }
 
 func ParseFloat(s string) (float64, error) {
@@ -226,6 +256,21 @@ func applyFontToDescendants(window Window, font *Font) {
 	})
 }
 
+func applyDPIToDescendants(window Window, dpi int) {
+	wb := window.AsWindowBase()
+	wb.ApplyDPI(dpi)
+
+	walkDescendants(window, func(w Window) bool {
+		if w.Handle() == wb.hWnd {
+			return true
+		}
+
+		w.(ApplyDPIer).ApplyDPI(dpi)
+
+		return true
+	})
+}
+
 func walkDescendants(window Window, f func(w Window) bool) {
 	window = window.AsWindowBase().window
 
@@ -233,15 +278,17 @@ func walkDescendants(window Window, f func(w Window) bool) {
 		return
 	}
 
-	var children []Widget
+	var children []*WidgetBase
 
 	switch w := window.(type) {
 	case *NumberEdit:
-		children = append(children, w.edit)
+		if w.edit != nil {
+			children = append(children, w.edit.AsWidgetBase())
+		}
 
 	case *TabWidget:
 		for _, p := range w.Pages().items {
-			children = append(children, p)
+			children = append(children, p.AsWidgetBase())
 		}
 
 	case Container:
@@ -252,8 +299,8 @@ func walkDescendants(window Window, f func(w Window) bool) {
 		}
 	}
 
-	for _, w := range children {
-		walkDescendants(w, f)
+	for _, wb := range children {
+		walkDescendants(wb.window.(Widget), f)
 	}
 }
 

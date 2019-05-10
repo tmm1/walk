@@ -15,6 +15,7 @@ type NumberEdit struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type NumberEdit struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -49,10 +52,10 @@ type NumberEdit struct {
 	Increment      float64
 	MaxValue       float64
 	MinValue       float64
-	Prefix         string
+	Prefix         Property
 	OnValueChanged walk.EventHandler
 	ReadOnly       Property
-	Suffix         string
+	Suffix         Property
 	TextColor      walk.Color
 	Value          Property
 }
@@ -63,6 +66,10 @@ func (ne NumberEdit) Create(builder *Builder) error {
 		return err
 	}
 
+	if ne.AssignTo != nil {
+		*ne.AssignTo = w
+	}
+
 	return builder.InitWidget(ne, w, func() error {
 		w.SetTextColor(ne.TextColor)
 
@@ -70,15 +77,8 @@ func (ne NumberEdit) Create(builder *Builder) error {
 			return err
 		}
 
-		if err := w.SetPrefix(ne.Prefix); err != nil {
-			return err
-		}
-		if err := w.SetSuffix(ne.Suffix); err != nil {
-			return err
-		}
-
 		inc := ne.Increment
-		if inc <= 0 {
+		if inc == 0 {
 			inc = 1
 		}
 
@@ -94,10 +94,6 @@ func (ne NumberEdit) Create(builder *Builder) error {
 
 		if ne.OnValueChanged != nil {
 			w.ValueChanged().Attach(ne.OnValueChanged)
-		}
-
-		if ne.AssignTo != nil {
-			*ne.AssignTo = w
 		}
 
 		return nil

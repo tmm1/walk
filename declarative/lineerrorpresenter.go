@@ -15,6 +15,7 @@ type LineErrorPresenter struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type LineErrorPresenter struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -53,11 +56,11 @@ func (lep LineErrorPresenter) Create(builder *Builder) error {
 		return err
 	}
 
-	return builder.InitWidget(lep, w, func() error {
-		if lep.AssignTo != nil {
-			*lep.AssignTo = w
-		}
+	if lep.AssignTo != nil {
+		*lep.AssignTo = w
+	}
 
+	return builder.InitWidget(lep, w, func() error {
 		return nil
 	})
 }

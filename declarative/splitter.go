@@ -15,6 +15,7 @@ type HSplitter struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type HSplitter struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -59,6 +62,10 @@ func (s HSplitter) Create(builder *Builder) error {
 		return err
 	}
 
+	if s.AssignTo != nil {
+		*s.AssignTo = w
+	}
+
 	w.SetSuspended(true)
 	builder.Defer(func() error {
 		w.SetSuspended(false)
@@ -70,10 +77,6 @@ func (s HSplitter) Create(builder *Builder) error {
 			if err := w.SetHandleWidth(s.HandleWidth); err != nil {
 				return err
 			}
-		}
-
-		if s.AssignTo != nil {
-			*s.AssignTo = w
 		}
 
 		return nil
@@ -129,6 +132,10 @@ func (s VSplitter) Create(builder *Builder) error {
 		return err
 	}
 
+	if s.AssignTo != nil {
+		*s.AssignTo = w
+	}
+
 	w.SetSuspended(true)
 	builder.Defer(func() error {
 		w.SetSuspended(false)
@@ -140,10 +147,6 @@ func (s VSplitter) Create(builder *Builder) error {
 			if err := w.SetHandleWidth(s.HandleWidth); err != nil {
 				return err
 			}
-		}
-
-		if s.AssignTo != nil {
-			*s.AssignTo = w
 		}
 
 		return nil

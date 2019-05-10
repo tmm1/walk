@@ -20,6 +20,7 @@ type ListBox struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -40,9 +41,11 @@ type ListBox struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -76,6 +79,10 @@ func (lb ListBox) Create(builder *Builder) error {
 		return err
 	}
 
+	if lb.AssignTo != nil {
+		*lb.AssignTo = w
+	}
+
 	return builder.InitWidget(lb, w, func() error {
 		w.SetFormat(lb.Format)
 		w.SetPrecision(lb.Precision)
@@ -96,10 +103,6 @@ func (lb ListBox) Create(builder *Builder) error {
 		}
 		if lb.OnItemActivated != nil {
 			w.ItemActivated().Attach(lb.OnItemActivated)
-		}
-
-		if lb.AssignTo != nil {
-			*lb.AssignTo = w
 		}
 
 		return nil

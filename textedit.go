@@ -38,6 +38,9 @@ func NewTextEditWithStyle(parent Container, style uint32) (*TextEdit, error) {
 		return nil, err
 	}
 
+	te.GraphicsEffects().Add(InteractionEffect)
+	te.GraphicsEffects().Add(FocusEffect)
+
 	te.MustRegisterProperty("ReadOnly", NewProperty(
 		func() interface{} {
 			return te.ReadOnly()
@@ -52,7 +55,7 @@ func NewTextEditWithStyle(parent Container, style uint32) (*TextEdit, error) {
 			return te.Text()
 		},
 		func(v interface{}) error {
-			return te.SetText(v.(string))
+			return te.SetText(assertStringOr(v, ""))
 		},
 		te.textChangedPublisher.Event()))
 
@@ -72,7 +75,7 @@ func (te *TextEdit) SizeHint() Size {
 }
 
 func (te *TextEdit) Text() string {
-	return windowText(te.hWnd)
+	return te.text()
 }
 
 func (te *TextEdit) TextLength() int {
@@ -84,12 +87,12 @@ func (te *TextEdit) SetText(value string) (err error) {
 		return nil
 	}
 
-	err = setWindowText(te.hWnd, value)
+	err = te.setText(value)
 	te.textChangedPublisher.Publish()
 	return
 }
 
-func (te *TextEdit) Alignment() Alignment1D {
+func (te *TextEdit) TextAlignment() Alignment1D {
 	switch win.GetWindowLong(te.hWnd, win.GWL_STYLE) & (win.ES_LEFT | win.ES_CENTER | win.ES_RIGHT) {
 	case win.ES_CENTER:
 		return AlignCenter
@@ -101,7 +104,11 @@ func (te *TextEdit) Alignment() Alignment1D {
 	return AlignNear
 }
 
-func (te *TextEdit) SetAlignment(alignment Alignment1D) error {
+func (te *TextEdit) SetTextAlignment(alignment Alignment1D) error {
+	if alignment == AlignDefault {
+		alignment = AlignNear
+	}
+
 	var bit uint32
 
 	switch alignment {
@@ -124,6 +131,10 @@ func (te *TextEdit) MaxLength() int {
 
 func (te *TextEdit) SetMaxLength(value int) {
 	te.SendMessage(win.EM_SETLIMITTEXT, uintptr(value), 0)
+}
+
+func (te *TextEdit) ScrollToCaret() {
+	te.SendMessage(win.EM_SCROLLCARET, 0, 0)
 }
 
 func (te *TextEdit) TextSelection() (start, end int) {

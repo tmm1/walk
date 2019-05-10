@@ -15,6 +15,7 @@ type ProgressBar struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type ProgressBar struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -57,6 +60,10 @@ func (pb ProgressBar) Create(builder *Builder) error {
 		return err
 	}
 
+	if pb.AssignTo != nil {
+		*pb.AssignTo = w
+	}
+
 	return builder.InitWidget(pb, w, func() error {
 		if pb.MaxValue > pb.MinValue {
 			w.SetRange(pb.MinValue, pb.MaxValue)
@@ -65,10 +72,6 @@ func (pb ProgressBar) Create(builder *Builder) error {
 
 		if err := w.SetMarqueeMode(pb.MarqueeMode); err != nil {
 			return err
-		}
-
-		if pb.AssignTo != nil {
-			*pb.AssignTo = w
 		}
 
 		return nil

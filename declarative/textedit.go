@@ -16,6 +16,7 @@ type TextEdit struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -36,22 +37,24 @@ type TextEdit struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
 
 	// TextEdit
 
-	Alignment     Alignment1D
 	AssignTo      **walk.TextEdit
 	HScroll       bool
 	MaxLength     int
 	OnTextChanged walk.EventHandler
 	ReadOnly      Property
 	Text          Property
+	TextAlignment Alignment1D
 	TextColor     walk.Color
 	VScroll       bool
 }
@@ -70,10 +73,14 @@ func (te TextEdit) Create(builder *Builder) error {
 		return err
 	}
 
+	if te.AssignTo != nil {
+		*te.AssignTo = w
+	}
+
 	return builder.InitWidget(te, w, func() error {
 		w.SetTextColor(te.TextColor)
 
-		if err := w.SetAlignment(walk.Alignment1D(te.Alignment)); err != nil {
+		if err := w.SetTextAlignment(walk.Alignment1D(te.TextAlignment)); err != nil {
 			return err
 		}
 
@@ -83,10 +90,6 @@ func (te TextEdit) Create(builder *Builder) error {
 
 		if te.OnTextChanged != nil {
 			w.TextChanged().Attach(te.OnTextChanged)
-		}
-
-		if te.AssignTo != nil {
-			*te.AssignTo = w
 		}
 
 		return nil

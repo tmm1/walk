@@ -10,9 +10,7 @@ import (
 	"strconv"
 	"syscall"
 	"unsafe"
-)
 
-import (
 	"github.com/lxn/win"
 )
 
@@ -76,6 +74,15 @@ func NewTabWidget(parent Container) (*TabWidget, error) {
 		},
 		tw.CurrentIndexChanged()))
 
+	tw.MustRegisterProperty("CurrentIndex", NewProperty(
+		func() interface{} {
+			return tw.CurrentIndex()
+		},
+		func(v interface{}) error {
+			return tw.SetCurrentIndex(assertIntOr(v, -1))
+		},
+		tw.CurrentIndexChanged()))
+
 	succeeded = true
 
 	return tw, nil
@@ -118,13 +125,33 @@ func (tw *TabWidget) MinSizeHint() Size {
 		min.Height = maxi(min.Height, s.Height)
 	}
 
-	b := tw.Bounds()
-	pb := tw.pages.At(0).Bounds()
+	b := tw.BoundsPixels()
+	pb := tw.pages.At(0).BoundsPixels()
 
 	size := Size{b.Width - pb.Width + min.Width, b.Height - pb.Height + min.Height}
 
 	return size
+}
 
+func (tw *TabWidget) HeightForWidth(width int) int {
+	if tw.pages.Len() == 0 {
+		return 0
+	}
+
+	var height int
+	margin := tw.SizePixels()
+	pageSize := tw.pages.At(0).SizePixels()
+
+	margin.Width -= pageSize.Width
+	margin.Height -= pageSize.Height
+
+	for i := tw.pages.Len() - 1; i >= 0; i-- {
+		h := tw.pages.At(i).HeightForWidth(width + margin.Width)
+
+		height = maxi(height, h)
+	}
+
+	return height + margin.Height
 }
 
 func (tw *TabWidget) SizeHint() Size {
@@ -144,7 +171,8 @@ func (tw *TabWidget) applyFont(font *Font) {
 
 	setWindowFont(tw.hWndTab, font)
 
-	applyFontToDescendants(tw, font)
+	// FIXME: won't work with ApplyDPI
+	// applyFontToDescendants(tw, font)
 }
 
 func (tw *TabWidget) CurrentIndex() int {
@@ -189,7 +217,7 @@ func (tw *TabWidget) SetPersistent(value bool) {
 }
 
 func (tw *TabWidget) SaveState() error {
-	tw.putState(strconv.Itoa(tw.CurrentIndex()))
+	tw.WriteState(strconv.Itoa(tw.CurrentIndex()))
 
 	for _, page := range tw.pages.items {
 		if err := page.SaveState(); err != nil {
@@ -201,7 +229,7 @@ func (tw *TabWidget) SaveState() error {
 }
 
 func (tw *TabWidget) RestoreState() error {
-	state, err := tw.getState()
+	state, err := tw.ReadState()
 	if err != nil {
 		return err
 	}
@@ -253,7 +281,7 @@ func (tw *TabWidget) resizePages() {
 	win.SendMessage(tw.hWndTab, win.TCM_ADJUSTRECT, 0, uintptr(unsafe.Pointer(&r)))
 
 	for _, page := range tw.pages.items {
-		if err := page.SetBounds(
+		if err := page.SetBoundsPixels(
 			Rectangle{
 				int(r.Left - 2),
 				int(r.Top),
@@ -284,7 +312,7 @@ func (tw *TabWidget) onSelChange() {
 		page.SetVisible(false)
 	}
 
-	tw.currentIndex = int(win.SendMessage(tw.hWndTab, win.TCM_GETCURSEL, 0, 0))
+	tw.currentIndex = int(int32(win.SendMessage(tw.hWndTab, win.TCM_GETCURSEL, 0, 0)))
 
 	if tw.currentIndex > -1 && tw.currentIndex < pageCount {
 		page := tw.pages.At(tw.currentIndex)
@@ -322,10 +350,7 @@ func (tw *TabWidget) WndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) 
 	return tw.WidgetBase.WndProc(hwnd, msg, wParam, lParam)
 }
 
-var (
-	tabWidgetTabWndProcPtr = syscall.NewCallback(tabWidgetTabWndProc)
-	tabWidgetBitmap        *Bitmap
-)
+var tabWidgetTabWndProcPtr = syscall.NewCallback(tabWidgetTabWndProc)
 
 func tabWidgetTabWndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uintptr {
 	tw := (*TabWidget)(unsafe.Pointer(win.GetWindowLongPtr(hwnd, win.GWLP_USERDATA)))
@@ -343,21 +368,15 @@ func tabWidgetTabWndProc(hwnd win.HWND, msg uint32, wParam, lParam uintptr) uint
 		hdc := win.BeginPaint(hwnd, &ps)
 		defer win.EndPaint(hwnd, &ps)
 
-		cb := tw.ClientBounds()
+		cb := tw.ClientBoundsPixels()
 
-		var err error
-		if tabWidgetBitmap == nil {
-			if tabWidgetBitmap, err = NewBitmap(cb.Size()); err != nil {
-				break
-			}
-		} else if tabWidgetBitmap.size.Width < cb.Width || tabWidgetBitmap.size.Height < cb.Height {
-			tabWidgetBitmap.Dispose()
-			if tabWidgetBitmap, err = NewBitmap(maxSize(tabWidgetBitmap.size, cb.Size())); err != nil {
-				break
-			}
+		bitmap, err := NewBitmap(cb.Size())
+		if err != nil {
+			break
 		}
+		defer bitmap.Dispose()
 
-		canvas, err := NewCanvasFromImage(tabWidgetBitmap)
+		canvas, err := NewCanvasFromImage(bitmap)
 		if err != nil {
 			break
 		}

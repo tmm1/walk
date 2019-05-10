@@ -15,6 +15,7 @@ type CheckBox struct {
 
 	Background         Brush
 	ContextMenuItems   []MenuItem
+	DoubleBuffering    bool
 	Enabled            Property
 	Font               Font
 	MaxSize            Size
@@ -35,9 +36,11 @@ type CheckBox struct {
 
 	// Widget
 
+	Alignment          Alignment2D
 	AlwaysConsumeSpace bool
 	Column             int
 	ColumnSpan         int
+	GraphicsEffects    []walk.WidgetGraphicsEffect
 	Row                int
 	RowSpan            int
 	StretchFactor      int
@@ -54,6 +57,7 @@ type CheckBox struct {
 	AssignTo            **walk.CheckBox
 	CheckState          Property
 	OnCheckStateChanged walk.EventHandler
+	TextOnLeftSide      bool
 	Tristate            bool
 }
 
@@ -63,11 +67,23 @@ func (cb CheckBox) Create(builder *Builder) error {
 		return err
 	}
 
+	if cb.AssignTo != nil {
+		*cb.AssignTo = w
+	}
+
 	return builder.InitWidget(cb, w, func() error {
 		w.SetPersistent(cb.Persistent)
 
+		if err := w.SetTextOnLeftSide(cb.TextOnLeftSide); err != nil {
+			return err
+		}
+
 		if err := w.SetTristate(cb.Tristate); err != nil {
 			return err
+		}
+
+		if cb.Tristate && cb.CheckState == nil {
+			w.SetCheckState(walk.CheckIndeterminate)
 		}
 
 		if cb.OnClicked != nil {
@@ -80,10 +96,6 @@ func (cb CheckBox) Create(builder *Builder) error {
 
 		if cb.OnCheckStateChanged != nil {
 			w.CheckStateChanged().Attach(cb.OnCheckStateChanged)
-		}
-
-		if cb.AssignTo != nil {
-			*cb.AssignTo = w
 		}
 
 		return nil

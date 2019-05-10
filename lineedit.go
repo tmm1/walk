@@ -50,6 +50,9 @@ func newLineEdit(parent Window) (*LineEdit, error) {
 		return nil, err
 	}
 
+	le.GraphicsEffects().Add(InteractionEffect)
+	le.GraphicsEffects().Add(FocusEffect)
+
 	le.MustRegisterProperty("ReadOnly", NewProperty(
 		func() interface{} {
 			return le.ReadOnly()
@@ -64,7 +67,7 @@ func newLineEdit(parent Window) (*LineEdit, error) {
 			return le.Text()
 		},
 		func(v interface{}) error {
-			return le.SetText(v.(string))
+			return le.SetText(assertStringOr(v, ""))
 		},
 		le.textChangedPublisher.Event()))
 
@@ -125,11 +128,11 @@ func (le *LineEdit) SetMaxLength(value int) {
 }
 
 func (le *LineEdit) Text() string {
-	return windowText(le.hWnd)
+	return le.text()
 }
 
 func (le *LineEdit) SetText(value string) error {
-	return setWindowText(le.hWnd, value)
+	return le.setText(value)
 }
 
 func (le *LineEdit) TextSelection() (start, end int) {
@@ -141,7 +144,7 @@ func (le *LineEdit) SetTextSelection(start, end int) {
 	le.SendMessage(win.EM_SETSEL, uintptr(start), uintptr(end))
 }
 
-func (le *LineEdit) Alignment() Alignment1D {
+func (le *LineEdit) TextAlignment() Alignment1D {
 	switch win.GetWindowLong(le.hWnd, win.GWL_STYLE) & (win.ES_LEFT | win.ES_CENTER | win.ES_RIGHT) {
 	case win.ES_CENTER:
 		return AlignCenter
@@ -153,7 +156,11 @@ func (le *LineEdit) Alignment() Alignment1D {
 	return AlignNear
 }
 
-func (le *LineEdit) SetAlignment(alignment Alignment1D) error {
+func (le *LineEdit) SetTextAlignment(alignment Alignment1D) error {
+	if alignment == AlignDefault {
+		alignment = AlignNear
+	}
+
 	var bit uint32
 
 	switch alignment {
@@ -226,6 +233,10 @@ func (le *LineEdit) SetReadOnly(readOnly bool) error {
 		return newError("SendMessage(EM_SETREADONLY)")
 	}
 
+	if readOnly != le.ReadOnly() {
+		le.invalidateBorderInParent()
+	}
+
 	le.readOnlyChangedPublisher.Publish()
 
 	return nil
@@ -259,7 +270,6 @@ func (le *LineEdit) sizeHintForLimit(limit int) (size Size) {
 }
 
 func (le *LineEdit) initCharWidth() {
-
 	font := le.Font()
 	if font == le.charWidthFont {
 		return
@@ -274,7 +284,7 @@ func (le *LineEdit) initCharWidth() {
 	}
 	defer win.ReleaseDC(le.hWnd, hdc)
 
-	defer win.SelectObject(hdc, win.SelectObject(hdc, win.HGDIOBJ(font.handleForDPI(0))))
+	defer win.SelectObject(hdc, win.SelectObject(hdc, win.HGDIOBJ(font.handleForDPI(le.DPI()))))
 
 	buf := []uint16{'M'}
 
